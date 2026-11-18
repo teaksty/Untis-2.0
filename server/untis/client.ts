@@ -7,6 +7,7 @@
 // Both work with the JSESSIONID that `authenticate` returns.
 
 import type { ApiError } from '../../shared/types.ts';
+import { isValidUntisServer } from '../../shared/untis-url.ts';
 
 export class UntisError extends Error {
   constructor(
@@ -43,11 +44,7 @@ const RPC_INVALID_SCHOOL = -8500;
 const CLIENT_NAME = 'Untis2';
 const TIMEOUT_MS = 15_000;
 
-/** WebUntis is hosted on *.webuntis.com; refusing anything else keeps the
- * server from being used to make requests to arbitrary hosts. */
-export function isValidUntisServer(server: string): boolean {
-  return /^[a-z0-9][a-z0-9-]{0,62}\.webuntis\.com$/i.test(server);
-}
+export { isValidUntisServer };
 
 /** 2024-11-18 -> 20241118 */
 export function toUntisDate(date: string): number {

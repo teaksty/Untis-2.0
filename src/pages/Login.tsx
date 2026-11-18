@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Profile, SchoolSearchResult } from '../../shared/types.ts';
+import { parseUntisUrl } from '../../shared/untis-url.ts';
 import { RequestError, api, login, loginDemo } from '../api.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Logo } from '../components/Logo.tsx';
@@ -9,7 +10,7 @@ type SearchState =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'done'; schools: SchoolSearchResult[] }
-  | { kind: 'error'; code: RequestError['code'] };
+  | { kind: 'error'; code: RequestError['code']; detail: string };
 
 export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
   const t = useT();
@@ -19,7 +20,8 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<RequestError['code'] | null>(null);
+  const [error, setError] = useState<RequestError | null>(null);
+  const [manual, setManual] = useState(false);
 
   // Debounced school search.
   useEffect(() => {
@@ -34,7 +36,7 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
       api<{ schools: SchoolSearchResult[] }>(`/api/schools?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
         .then((r) => setSearch({ kind: 'done', schools: r.schools }))
         .catch((e: RequestError) => {
-          if (!ctrl.signal.aborted) setSearch({ kind: 'error', code: e.code });
+          if (!ctrl.signal.aborted) setSearch({ kind: 'error', code: e.code, detail: e.message });
         });
     }, 350);
     return () => {
@@ -58,7 +60,7 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
         }),
       );
     } catch (e) {
-      setError((e as RequestError).code);
+      setError(e as RequestError);
     } finally {
       setBusy(false);
     }
@@ -70,7 +72,7 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
     try {
       onLogin(await loginDemo());
     } catch (e) {
-      setError((e as RequestError).code);
+      setError(e as RequestError);
     } finally {
       setBusy(false);
     }
@@ -116,12 +118,15 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
                 </button>
               </div>
             </div>
+          ) : manual ? (
+            <ManualSchool onPick={setSchool} onCancel={() => setManual(false)} />
           ) : (
-            <label className="field">
-              <span>{t('login.school')}</span>
+            <div className="field">
+              <label htmlFor="school-search">{t('login.school')}</label>
               <div className="input-icon">
                 <Icon name="search" size={18} />
                 <input
+                  id="school-search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('login.schoolPlaceholder')}
@@ -130,7 +135,10 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
                 />
               </div>
               <SchoolResults state={search} query={query} onPick={setSchool} />
-            </label>
+              <button type="button" className="link-btn small left" onClick={() => setManual(true)}>
+                {t('login.manual')}
+              </button>
+            </div>
           )}
 
           <label className="field">
@@ -144,7 +152,8 @@ export function LoginPage({ onLogin }: { onLogin(p: Profile): void }) {
 
           {error && (
             <p className="form-error" role="alert">
-              {t(error === 'network' ? 'err.network' : `err.${error}`)}
+              {t(error.code === 'network' ? 'err.network' : `err.${error.code}`)}
+              {error.code !== 'bad_credentials' && error.code !== 'network' && <span className="error-detail">{error.message}</span>}
             </p>
           )}
 
@@ -172,7 +181,14 @@ function SchoolResults({ state, query, onPick }: { state: SearchState; query: st
   const t = useT();
   if (query.trim().length > 0 && query.trim().length < 3) return <p className="hint">{t('login.typeMore')}</p>;
   if (state.kind === 'loading') return <p className="hint">{t('login.searching')}</p>;
-  if (state.kind === 'error') return <p className="hint error">{t(state.code === 'network' ? 'err.network' : `err.${state.code}`)}</p>;
+  if (state.kind === 'error') {
+    return (
+      <p className="hint error">
+        {t(state.code === 'network' ? 'err.network' : `err.${state.code}`)}
+        {state.code !== 'too_many_results' && state.code !== 'network' && <span className="error-detail">{state.detail}</span>}
+      </p>
+    );
+  }
   if (state.kind !== 'done') return null;
   if (!state.schools.length) return <p className="hint">{t('login.noSchools')}</p>;
   return (
@@ -186,5 +202,51 @@ function SchoolResults({ state, query, onPick }: { state: SearchState; query: st
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Fallback when search fails or the school is not listed: paste the WebUntis address. */
+function ManualSchool({ onPick, onCancel }: { onPick(s: SchoolSearchResult): void; onCancel(): void }) {
+  const t = useT();
+  const [value, setValue] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const pick = () => {
+    const school = parseUntisUrl(value);
+    if (school) onPick(school);
+    else setInvalid(true);
+  };
+  return (
+    <div className="field">
+      <label htmlFor="school-url">{t('login.manualLabel')}</label>
+      <input
+        id="school-url"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setInvalid(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            pick();
+          }
+        }}
+        placeholder="https://….webuntis.com/WebUntis/?school=…"
+        inputMode="url"
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        autoFocus
+      />
+      <p className={`hint${invalid ? ' error' : ''}`}>{invalid ? t('login.manualInvalid') : t('login.manualHint')}</p>
+      <div className="inline-actions">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          {t('common.back')}
+        </button>
+        <button type="button" className="btn btn-primary" onClick={pick} disabled={!value.trim()}>
+          {t('login.manualUse')}
+        </button>
+      </div>
+    </div>
   );
 }

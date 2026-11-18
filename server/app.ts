@@ -80,10 +80,12 @@ export function createApp(opts: AppOptions) {
   app.onError((err, c) => {
     if (err instanceof UntisError) {
       if (err.code === 'bad_credentials') deleteCookie(c, COOKIE, { path: '/' });
+      // Upstream trouble ends up in the hosting logs (e.g. Vercel → Logs).
+      if (err.code === 'untis_error' || err.code === 'untis_unreachable') console.warn(`[${c.req.path}] ${err.message}`);
       return fail(c, err.code, err.message);
     }
     console.error(err);
-    return c.json({ error: 'Internal error', code: 'untis_error' } satisfies ApiError, 500);
+    return c.json({ error: `Internal error: ${(err as Error).message}`, code: 'untis_error' } satisfies ApiError, 500);
   });
 
   app.get('/api/health', (c) => c.json({ ok: true }));

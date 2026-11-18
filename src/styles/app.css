@@ -2141,6 +2141,39 @@ textarea:focus {
   color: var(--red-text);
 }
 
+.error-detail {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.link-btn.left {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.field > label:first-child {
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.inline-actions .btn {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
 /* ---- Login ---------------------------------------------------------------- */
 
 .login {
