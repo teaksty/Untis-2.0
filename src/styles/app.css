@@ -1199,6 +1199,183 @@ button:disabled {
   gap: 6px;
 }
 
+/* ---- Timetable: phone week view ------------------------------------------ */
+
+.view-switch .segmented {
+  margin: -2px 0 14px;
+}
+
+.view-switch .segmented button {
+  padding: 6px 10px;
+  font-size: 13.5px;
+}
+
+.week-grid.mini {
+  grid-template-columns: 30px repeat(var(--days), minmax(0, 1fr));
+  grid-template-rows: auto repeat(var(--rows), minmax(54px, auto));
+  margin: 0 -6px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.week-grid.mini .wg-head {
+  padding: 4px 2px;
+}
+
+.week-grid.mini .wg-period {
+  gap: 0;
+  font-size: 9.5px;
+}
+
+.week-grid.mini .wg-period-name {
+  font-size: 13px;
+}
+
+.week-grid.mini .wg-slot {
+  gap: 2px;
+  padding: 2px;
+}
+
+.week-grid.mini .wg-holiday {
+  margin: 3px;
+  font-size: 11px;
+  writing-mode: vertical-rl;
+}
+
+.mini-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 3px 0 2px;
+  border-radius: 10px;
+}
+
+.mini-day:active {
+  background: var(--surface-2);
+}
+
+.mini-day-wd {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mini-day-num {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-day.today .mini-day-wd {
+  color: var(--accent);
+}
+
+.mini-day.today .mini-day-num {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.mini-lesson {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 46px;
+  padding: 4px 4px 4px 6px;
+  overflow: hidden;
+  border-radius: 8px;
+  border-left: 3px solid var(--sub);
+  background: var(--sub-soft);
+  text-align: left;
+  transition: transform 0.12s;
+}
+
+.mini-lesson:active {
+  transform: scale(0.95);
+}
+
+.mini-subject,
+.mini-room {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-subject {
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.mini-room {
+  color: var(--text-2);
+  font-size: 10.5px;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-lesson.st-cancelled {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+
+.mini-lesson.st-cancelled .mini-subject,
+.mini-lesson.st-cancelled .mini-room {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.mini-lesson.st-substitution {
+  box-shadow: inset 0 0 0 1.5px var(--amber);
+}
+
+.mini-lesson.st-roomChange .mini-room {
+  color: var(--blue-text);
+  font-weight: 700;
+}
+
+.mini-lesson.st-additional {
+  box-shadow: inset 0 0 0 1.5px var(--green);
+}
+
+.mini-lesson.current {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.mini-dots {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  gap: 2px;
+}
+
+.mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mini-dot.exam {
+  background: var(--pink);
+}
+
+.mini-dot.hw {
+  background: var(--accent);
+}
+
 /* ---- Lists, groups, cards ------------------------------------------------ */
 
 .group {

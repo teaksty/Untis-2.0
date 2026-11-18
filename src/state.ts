@@ -11,6 +11,8 @@ export interface Settings {
   mergeDoubles: boolean;
   teacherLongNames: boolean;
   scale: ScaleId;
+  /** Timetable layout on phones (desktops always show the week). */
+  ttView: 'day' | 'week';
 }
 
 function defaultLang(): Lang {
@@ -24,6 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
   mergeDoubles: true,
   teacherLongNames: true,
   scale: defaultLang() === 'ru' ? 'ru' : 'de',
+  ttView: 'day',
 };
 
 export const settingsStore = persistedStore<Settings>('u2.settings', DEFAULT_SETTINGS, (s) => ({

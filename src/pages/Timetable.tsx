@@ -5,7 +5,7 @@ import type { Exam, ExamsResponse, Holiday, HomeworkResponse, Lesson, TimegridUn
 import { prefetch, useApi } from '../api.ts';
 import { Icon } from '../components/Icon.tsx';
 import { LessonCard, RefList, periodLabel, subjectColorKey, subjectName } from '../components/LessonCard.tsx';
-import { Empty, LoadState, RefreshButton, Sheet, Skeleton } from '../components/ui.tsx';
+import { Empty, LoadState, RefreshButton, Segmented, Sheet, Skeleton } from '../components/ui.tsx';
 import { useT, type T } from '../i18n.ts';
 import { subjectStyle } from '../lib/colors.ts';
 import { useMediaQuery, useNow } from '../lib/hooks.ts';
@@ -122,6 +122,8 @@ export function TimetablePage({ userData }: { userData: UserData }) {
       return next;
     });
 
+  const view = wide ? 'week' : settings.ttView;
+  const setView = (ttView: 'day' | 'week') => settingsStore.set((s) => ({ ...s, ttView }));
   const isThisWeek = startOfWeek(todayStr) === weekStart;
   const month = t.date(selected, { month: 'long' });
   const title = `${month} ${selected.slice(0, 4)}`;
@@ -134,7 +136,7 @@ export function TimetablePage({ userData }: { userData: UserData }) {
           {tt.data && <Updated at={tt.data.fetchedAt} />}
         </div>
         <div className="head-actions">
-          {!(wide ? isThisWeek : selected === todayStr) && (
+          {!(view === 'week' ? isThisWeek : selected === todayStr) && (
             <button type="button" className="pill-btn" onClick={() => setSelected(defaultDay(todayStr))}>
               {t('common.today')}
             </button>
@@ -151,8 +153,28 @@ export function TimetablePage({ userData }: { userData: UserData }) {
 
       <LoadState error={tt.error} hasData={Boolean(tt.data)} onRetry={reload} />
 
-      {wide ? (
+      {!wide && (
+        <div className="view-switch">
+          <Segmented<'day' | 'week'>
+            label={t('tt.view')}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'day', label: t('tt.viewDay') },
+              { value: 'week', label: t('tt.viewWeek') },
+            ]}
+          />
+        </div>
+      )}
+
+      {view === 'week' ? (
         <WeekGrid
+          mini={!wide}
+          onSwipe={goWeek}
+          onPickDay={(d) => {
+            setSelected(d);
+            setView('day');
+          }}
           days={days}
           lessons={lessons}
           grid={grid}
@@ -227,30 +249,15 @@ function DayView(
 ) {
   const { days, selected, onSelect, onSwipe, lessons, grid, holidays, extras, now, todayStr, loading, longNames, onOpen } = props;
   const t = useT();
-  const touch = useRef<{ x: number; y: number } | null>(null);
-  const [slide, setSlide] = useState<'' | 'from-left' | 'from-right'>('');
+  const { slide, setSlide, handlers } = useSwipe(onSwipe);
 
   const dayLessons = lessons.filter((l) => l.date === selected);
   const slots = groupIntoSlots(dayLessons);
   const holiday = holidayOn(selected, holidays);
   const nowMin = timeToMinutes(nowTime(now));
 
-  const onTouchStart = (e: TouchEvent) => {
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  };
-  const onTouchEnd = (e: TouchEvent) => {
-    if (!touch.current) return;
-    const dx = e.changedTouches[0].clientX - touch.current.x;
-    const dy = e.changedTouches[0].clientY - touch.current.y;
-    touch.current = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      setSlide(dx < 0 ? 'from-right' : 'from-left');
-      onSwipe(dx < 0 ? 1 : -1);
-    }
-  };
-
   return (
-    <div className="day-view" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="day-view" {...handlers}>
       <nav className="week-strip" aria-label="Week">
         {days.map((d) => {
           const changes = lessons.filter((l) => l.date === d && isChanged(l));
@@ -317,6 +324,28 @@ function DayView(
       </div>
     </div>
   );
+}
+
+/** Horizontal swipe detection plus the slide-in direction for the next render. */
+function useSwipe(onSwipe: (delta: number) => void) {
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const [slide, setSlide] = useState<'' | 'from-left' | 'from-right'>('');
+  const handlers = {
+    onTouchStart(e: TouchEvent) {
+      touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchEnd(e: TouchEvent) {
+      if (!touch.current) return;
+      const dx = e.changedTouches[0].clientX - touch.current.x;
+      const dy = e.changedTouches[0].clientY - touch.current.y;
+      touch.current = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        setSlide(dx < 0 ? 'from-right' : 'from-left');
+        onSwipe(dx < 0 ? 1 : -1);
+      }
+    },
+  };
+  return { slide, setSlide, handlers };
 }
 
 function Gap({ prev, next, grid }: { prev: Slot; next: Slot; grid: TimegridUnit[] }) {
@@ -416,7 +445,39 @@ function unitIndex(grid: TimegridUnit[], time: string, edge: 'start' | 'end'): n
   return last;
 }
 
-function WeekGrid({ days, lessons, grid, holidays, extras, now, todayStr, loading, longNames, onOpen }: ViewProps) {
+interface WeekGridProps extends ViewProps {
+  /** Phone layout: short names, tiny cells. */
+  mini?: boolean;
+  onSwipe?(delta: number): void;
+  onPickDay?(date: string): void;
+}
+
+function WeekGrid({ mini, onSwipe, onPickDay, ...props }: WeekGridProps) {
+  const { slide, handlers } = useSwipe((d) => onSwipe?.(d));
+  if (!mini) return <WeekGridInner {...props} />;
+  return (
+    <div className="week-swipe" {...handlers}>
+      <div key={props.days[0]} className={`day-content ${slide}`}>
+        <WeekGridInner {...props} mini onPickDay={onPickDay} />
+      </div>
+    </div>
+  );
+}
+
+function WeekGridInner({
+  days,
+  lessons,
+  grid,
+  holidays,
+  extras,
+  now,
+  todayStr,
+  loading,
+  longNames,
+  onOpen,
+  mini,
+  onPickDay,
+}: ViewProps & { mini?: boolean; onPickDay?(date: string): void }) {
   const t = useT();
   const nowMin = timeToMinutes(nowTime(now));
 
@@ -441,13 +502,17 @@ function WeekGrid({ days, lessons, grid, holidays, extras, now, todayStr, loadin
 
   return (
     <div
-      className="week-grid"
+      className={`week-grid${mini ? ' mini' : ''}`}
       style={{ '--days': days.length, '--rows': grid.length } as CSSProperties}
     >
       <div className="wg-corner" />
       {days.map((d, i) => (
         <div key={d} className="wg-head" style={{ gridColumn: i + 2 }}>
-          <DayHeader date={d} todayStr={todayStr} t={t} lessons={lessons} />
+          {mini ? (
+            <MiniDayHeader date={d} todayStr={todayStr} t={t} lessons={lessons} onPick={onPickDay} />
+          ) : (
+            <DayHeader date={d} todayStr={todayStr} t={t} lessons={lessons} />
+          )}
         </div>
       ))}
       {grid.map((u, r) => (
@@ -455,8 +520,12 @@ function WeekGrid({ days, lessons, grid, holidays, extras, now, todayStr, loadin
           <span className="wg-period-name">{u.name}</span>
           <span className="wg-period-time">
             {u.start}
-            <br />
-            {u.end}
+            {!mini && (
+              <>
+                <br />
+                {u.end}
+              </>
+            )}
           </span>
         </div>
       ))}
@@ -485,23 +554,71 @@ function WeekGrid({ days, lessons, grid, holidays, extras, now, todayStr, loadin
               className="wg-slot"
               style={{ gridColumn: c + 2, gridRow: `${from + 2} / ${to + 3}` }}
             >
-              {slot.lessons.map((l) => (
-                <LessonCard
-                  key={l.id}
-                  lesson={l}
-                  compact
-                  exam={examFor(l, extras.exams)}
-                  homeworkCount={homeworkCount(l, extras)}
-                  progress={progressOf(l, d, todayStr, nowMin)}
-                  longNames={longNames}
-                  onOpen={onOpen}
-                />
-              ))}
+              {slot.lessons.map((l) =>
+                mini ? (
+                  <MiniLesson
+                    key={l.id}
+                    lesson={l}
+                    exam={Boolean(examFor(l, extras.exams))}
+                    homework={homeworkCount(l, extras) > 0}
+                    current={progressOf(l, d, todayStr, nowMin) != null}
+                    onOpen={onOpen}
+                  />
+                ) : (
+                  <LessonCard
+                    key={l.id}
+                    lesson={l}
+                    compact
+                    exam={examFor(l, extras.exams)}
+                    homeworkCount={homeworkCount(l, extras)}
+                    progress={progressOf(l, d, todayStr, nowMin)}
+                    longNames={longNames}
+                    onOpen={onOpen}
+                  />
+                ),
+              )}
             </div>
           );
         });
       })}
     </div>
+  );
+}
+
+/** Day column header on phones; tapping it opens that day. */
+function MiniDayHeader({ date, todayStr, t, lessons, onPick }: { date: string; todayStr: string; t: T; lessons: Lesson[]; onPick?(d: string): void }) {
+  const changes = lessons.filter((l) => l.date === date && isChanged(l));
+  const cancelled = changes.some((l) => l.status === 'cancelled');
+  return (
+    <button type="button" className={`mini-day${date === todayStr ? ' today' : ''}`} onClick={() => onPick?.(date)}>
+      <span className="mini-day-wd">{t.date(date, { weekday: 'short' })}</span>
+      <span className="mini-day-num">{t.date(date, { day: 'numeric' })}</span>
+      <span className={`day-chip-dot${changes.length ? (cancelled ? ' red' : ' amber') : ''}`} />
+    </button>
+  );
+}
+
+/** Tiny lesson cell for the phone week grid: short subject and room only. */
+function MiniLesson({ lesson: l, exam, homework, current, onOpen }: { lesson: Lesson; exam: boolean; homework: boolean; current: boolean; onOpen(l: Lesson): void }) {
+  const subject = l.subjects.map((s) => s.short || s.long).join(', ') || l.activityType || l.text || '—';
+  const room = l.rooms.map((r) => r.short || r.long).join(', ');
+  return (
+    <button
+      type="button"
+      className={`mini-lesson st-${l.status}${current ? ' current' : ''}`}
+      style={subjectStyle(subjectColorKey(l))}
+      onClick={() => onOpen(l)}
+      title={subjectName(l)}
+    >
+      <span className="mini-subject">{subject}</span>
+      {room && <span className="mini-room">{room}</span>}
+      {(exam || homework) && (
+        <span className="mini-dots" aria-hidden="true">
+          {exam && <span className="mini-dot exam" />}
+          {homework && <span className="mini-dot hw" />}
+        </span>
+      )}
+    </button>
   );
 }
 

@@ -54,6 +54,9 @@ const ru = {
   'tt.group': 'Группа',
   'tt.time': 'Время',
   'tt.note': 'Примечание',
+  'tt.viewDay': 'День',
+  'tt.viewWeek': 'Неделя',
+  'tt.view': 'Вид расписания',
 
   'hw.open': 'К сдаче',
   'hw.done': 'Сделано',
@@ -214,6 +217,9 @@ const de: Dict = {
   'tt.group': 'Gruppe',
   'tt.time': 'Zeit',
   'tt.note': 'Hinweis',
+  'tt.viewDay': 'Tag',
+  'tt.viewWeek': 'Woche',
+  'tt.view': 'Ansicht',
 
   'hw.open': 'Offen',
   'hw.done': 'Erledigt',
@@ -371,6 +377,9 @@ const en: Dict = {
   'tt.group': 'Group',
   'tt.time': 'Time',
   'tt.note': 'Note',
+  'tt.viewDay': 'Day',
+  'tt.viewWeek': 'Week',
+  'tt.view': 'Timetable view',
 
   'hw.open': 'To do',
   'hw.done': 'Done',
